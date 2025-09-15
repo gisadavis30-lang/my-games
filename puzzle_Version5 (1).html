@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Modern Puzzle Game</title>
+  <style>
+    body {
+      background: linear-gradient(120deg, #e0ecfa 0%, #cfdaf3 100%);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .game-container {
+      background: rgba(230,240,255,0.92);
+      padding: 2em 2.5em;
+      border-radius: 28px;
+      box-shadow: 0 8px 32px rgba(64,93,230,0.11);
+      text-align: center;
+      min-width: 340px;
+      backdrop-filter: blur(7px);
+    }
+    h1 {
+      color: #2a5edb;
+      font-size: 2.1em;
+      margin-bottom: 0.5em;
+      letter-spacing: 2px;
+    }
+    .level-panel {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 1em;
+    }
+    .level-btn {
+      background: linear-gradient(90deg, #2a5edb 0%, #5ba8fa 100%);
+      color: #fff;
+      border: none;
+      padding: 0.4em 1.1em;
+      border-radius: 10px;
+      font-size: 1em;
+      cursor: pointer;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(64,93,230,0.11);
+      transition: background 0.2s, transform 0.2s;
+    }
+    .level-btn.active {
+      background: linear-gradient(90deg, #5ba8fa 0%, #2a5edb 100%);
+      font-weight: 800;
+      border: 2px solid #fff;
+    }
+    .board {
+      display: grid;
+      gap: 10px;
+      margin: 1em auto 1.5em auto;
+      justify-content: center;
+    }
+    .tile {
+      background: linear-gradient(120deg, #2a5edb 0%, #5ba8fa 100%);
+      color: #fff;
+      border-radius: 18px;
+      font-size: 2em;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 3px 24px rgba(64,93,230,0.13);
+      transition: background 0.2s, box-shadow 0.2s, transform 0.18s;
+      user-select: none;
+      position: relative;
+      z-index: 1;
+    }
+    .tile.blank {
+      background: transparent;
+      box-shadow: none;
+      cursor: default;
+      pointer-events: none;
+    }
+    .stats-panel {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 0.7em;
+      margin-top: 0.5em;
+      font-size: 1.13em;
+      color: #2a5edb;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+    .stats-panel .stat-label {
+      color: #5ba8fa;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+    .btn {
+      background: linear-gradient(90deg, #2a5edb 0%, #5ba8fa 100%);
+      color: #fff;
+      border: none;
+      padding: 0.7em 1.6em;
+      border-radius: 12px;
+      font-size: 1.1em;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 10px;
+      box-shadow: 0 2px 8px rgba(64,93,230,0.13);
+      transition: background 0.2s, transform 0.2s;
+    }
+    .btn:hover {
+      background: linear-gradient(90deg, #5ba8fa 0%, #2a5edb 100%);
+      transform: scale(1.05);
+    }
+    .footer {
+      margin-top: 2em;
+      color: #2a5edb;
+      font-size: 1em;
+      opacity: 0.7;
+    }
+    .win {
+      color: #10c973;
+      font-weight: 700;
+      font-size: 1.13em;
+      letter-spacing: 1px;
+      margin-top: 0.5em;
+      animation: fadein 1s;
+    }
+    @media (max-width: 500px) {
+      .game-container { min-width: 98vw; padding: 1em 0.3em; }
+      .level-panel { flex-direction: column; gap: 14px; }
+      .stats-panel { flex-direction: column; gap: 10px; font-size: 1em;}
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1>Sliding Puzzle</h1>
+    <div class="level-panel">
+      <button class="level-btn active" onclick="setLevel(3)">3x3</button>
+      <button class="level-btn" onclick="setLevel(4)">4x4</button>
+      <button class="level-btn" onclick="setLevel(5)">5x5</button>
+    </div>
+    <div class="stats-panel">
+      <span><span class="stat-label">Moves:</span><span id="moveCount">0</span></span>
+      <span><span class="stat-label">Marks:</span><span id="marksCount">0</span></span>
+      <span id="winMsg"></span>
+    </div>
+    <div class="board" id="board"></div>
+    <button class="btn" onclick="shuffleTiles()">Shuffle</button>
+    <div class="footer">&copy; 2025 DAVIS Games</div>
+  </div>
+  <script>
+    // Game state
+    let size = 3; // Level: 3x3, 4x4, 5x5
+    let tiles = [];
+    let moveCount = 0;
+    let marksCount = 0;
+    let gameActive = true;
+    let solvedMarks = {3: 0, 4: 0, 5: 0};
+
+    function setLevel(newSize) {
+      if (size !== newSize) {
+        size = newSize;
+        document.querySelectorAll('.level-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.level-btn')[newSize-3].classList.add('active');
+        initBoard();
+      }
+    }
+
+    function initBoard() {
+      tiles = Array.from({length: size*size-1}, (_, i) => i+1).concat([0]);
+      moveCount = 0;
+      gameActive = true;
+      document.getElementById("winMsg").textContent = "";
+      renderBoard();
+      updateStats();
+    }
+
+    function shuffleTiles() {
+      initBoard();
+      let blankIdx = tiles.length-1;
+      for (let i = 0; i < size*size*20; i++) {
+        let neighbors = getNeighbors(blankIdx);
+        let moveTo = neighbors[Math.floor(Math.random()*neighbors.length)];
+        tiles[blankIdx] = tiles[moveTo];
+        tiles[moveTo] = 0;
+        blankIdx = moveTo;
+      }
+      moveCount = 0;
+      gameActive = true;
+      document.getElementById("winMsg").textContent = "";
+      renderBoard();
+      updateStats();
+    }
+
+    function renderBoard() {
+      const boardDiv = document.getElementById("board");
+      boardDiv.innerHTML = "";
+      boardDiv.style.gridTemplateColumns = `repeat(${size}, ${Math.max(70, 340/size)}px)`;
+      boardDiv.style.gridTemplateRows = `repeat(${size}, ${Math.max(70, 340/size)}px)`;
+      tiles.forEach((val, idx) => {
+        const tileDiv = document.createElement("div");
+        tileDiv.className = "tile" + (val === 0 ? " blank" : "");
+        tileDiv.textContent = val === 0 ? "" : val;
+        tileDiv.style.height = `${Math.max(70, 340/size)}px`;
+        tileDiv.style.width = `${Math.max(70, 340/size)}px`;
+        tileDiv.onclick = () => handleTileClick(idx);
+        boardDiv.appendChild(tileDiv);
+      });
+    }
+
+    function handleTileClick(idx) {
+      if (!gameActive || tiles[idx] === 0) return;
+      const blankIdx = tiles.indexOf(0);
+      if (isNeighbor(idx, blankIdx)) {
+        tiles[blankIdx] = tiles[idx];
+        tiles[idx] = 0;
+        moveCount++;
+        renderBoard();
+        updateStats();
+        checkWin();
+      }
+    }
+
+    function isNeighbor(i, j) {
+      const rowI = Math.floor(i/size), colI = i%size;
+      const rowJ = Math.floor(j/size), colJ = j%size;
+      return (Math.abs(rowI-rowJ) + Math.abs(colI-colJ)) === 1;
+    }
+
+    function getNeighbors(idx) {
+      const row = Math.floor(idx/size), col = idx%size;
+      let neighbors = [];
+      if (row > 0) neighbors.push(idx-size);
+      if (row < size-1) neighbors.push(idx+size);
+      if (col > 0) neighbors.push(idx-1);
+      if (col < size-1) neighbors.push(idx+1);
+      return neighbors;
+    }
+
+    function updateStats() {
+      document.getElementById("moveCount").textContent = moveCount;
+      document.getElementById("marksCount").textContent = solvedMarks[size] || 0;
+    }
+
+    function checkWin() {
+      for (let i = 0; i < size*size-1; i++) {
+        if (tiles[i] !== i+1) return;
+      }
+      if (tiles[size*size-1] === 0) {
+        gameActive = false;
+        solvedMarks[size]++;
+        updateStats();
+        document.getElementById("winMsg").innerHTML = '<span class="win">🎉 You solved it!</span>';
+      }
+    }
+
+    // Start game
+    initBoard();
+  </script>
+</body>
+</html>
